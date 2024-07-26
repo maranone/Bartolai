@@ -6,9 +6,9 @@ tune_env_num: 16
 train_path: './model'
 train_num_timesteps: 100000000
 train_episode_steps: 100000
-train_env_num: 32
+train_env_num: 1
 train_render: True
 train_n_stack: 8
 train_model_name: 'ppo_model.zip'
 train_record_path: './record'
-train_iterations: 500
+train_iterations: 2000

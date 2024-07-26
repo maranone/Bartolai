@@ -14,7 +14,7 @@ from stable_baselines3.common.vec_env import (
 from custom.load_config import config
 from custom.statslogger import StatsLogger
 from custom.stochasticframeskip import StochasticFrameSkip
-from custom.policies import CustomCNNLSTMPolicy
+from custom.policies import CustomCNNLSTMPolicy, CustomCNNGRUExtractor
 
 def make_retro(*, game, state=None, max_episode_steps=None, record='./record', env_id=0, **kwargs):
     env = retro.make(game, state, use_restricted_actions=retro.Actions.FILTERED, record=record, **kwargs)
@@ -90,10 +90,14 @@ def main():
             reset_num_timesteps=False,  # This ensures the timestep count continues across iterations
             callback=[stats_logger]
         )
-        model.save(model_path)
+        if config.get('train_env_num') > 1:
+            model.save(model_path)
+        else:
+            model = PPO.load(model_path, env=venv, custom_objects={"policy_class": CustomCNNLSTMPolicy})
 
     # Save the final model
-    model.save(model_path)
+    if config.get('train_env_num') > 1:
+        model.save(model_path)
     print(f"Model saved to {model_path}")
     print(f"Recording saved in {config.train_path} directory")
 

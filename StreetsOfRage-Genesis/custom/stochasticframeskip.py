@@ -166,7 +166,7 @@ class StochasticFrameSkip(gym.Wrapper):
                 )
             else:
                 ob, rew, terminated, truncated, info = self.env.step(self.curac)
-            rew += self.reward_system.calculate_reward(info, ac)
+            rew = self.reward_system.calculate_reward(info, ac)
             self.reward_system.update_common_rewards(info)
             self.cumulative_reward = self.reward_system.get_cumulative_reward()
             self.cumulative_health = self.reward_system.get_cumulative_health()
@@ -176,13 +176,17 @@ class StochasticFrameSkip(gym.Wrapper):
 
 
 
-
+            if rew <= 0:
+                self.steps_without_reward += 1
+            else:
+                self.steps_without_reward = 0
             if self.steps_without_reward >= self.max_steps_without_reward:
+                self.steps_without_reward = 0
                 terminated = True
                 truncated = True 
             if terminated or truncated:
                 break
-        #print(self.env_id)
+        #print(rew)
         if self.env_id == 0 and config.get('train_render') == True:
             update_max_values(self)
             render_data = self.send_data(info)

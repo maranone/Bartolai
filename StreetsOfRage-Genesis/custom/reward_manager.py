@@ -2,7 +2,7 @@ class HierarchicalReward:
     def __init__(self):
         self.wei_hea = 1  # Adjust these weights as needed
         self.wei_sco = 1
-        self.wei_map = 0.1
+        self.wei_map = 1
         self.wei_dam = 1
         
         self.health = 0
@@ -106,8 +106,8 @@ class HierarchicalReward:
         self.damage = state["damage"]
         
         # Small penalty for enemies present
-        rew -= 0.000001
-        self.cumulative_reward -= 0.000001
+        rew -= 0.0001
+        self.cumulative_reward -= 0.0001
         
         return rew
 
