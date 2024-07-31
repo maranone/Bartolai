@@ -429,6 +429,39 @@ class PygameRenderer:
         filled_circle_radius = int(radius * (percentage / 100))
         pygame.draw.circle(self.screen, color, center, filled_circle_radius)  
 
+    def display_policy(self, info):
+        enemy_count = sum(1 for i in range(1, 8) if info[f'enemy{i}'] > 0)
+        rect_x = self.width - 267
+        rect_width = 260
+        rect_height = 52  # Define the height of the rectangle
+        top_position = 5  # Define the top position of the rectangle
+        text_color = (255, 255, 255)  # White text color
+        background_color = (0, 0, 0)  # Black background
+        enemy_color = (0, 255, 0)  # Green color for enemies
+        
+        # Background rectangle
+        pygame.draw.rect(self.screen, background_color, pygame.Rect(rect_x, top_position, rect_width, rect_height))  # Black background
+
+        if enemy_count > 0:
+            # Draw green rectangle
+            pygame.draw.rect(self.screen, enemy_color, pygame.Rect(rect_x, top_position, rect_width, rect_height))  
+            text = "Enemy"
+        else:
+            text = "Exploration"
+
+        # Draw border rectangle
+        pygame.draw.rect(self.screen, (255, 255, 255), pygame.Rect(rect_x, top_position, rect_width, rect_height), 2)  # White border
+        
+        # Font settings
+        font_size = int(rect_height / 1.5)  # Adjust font size relative to rectangle height
+        font = pygame.font.Font(None, font_size)
+        text_surface = font.render(text, True, text_color)
+        text_rect = text_surface.get_rect(center=(rect_x + rect_width / 2, top_position + rect_height / 2))
+        
+        # Draw text
+        self.screen.blit(text_surface, text_rect)
+
+
     def render(self, render_data):
 
         info = render_data['info']
@@ -475,7 +508,7 @@ class PygameRenderer:
 
         # Define your legend texts
         legend_texts = ['SWR\n' + str(round(self.steps_without_reward)), 'TIM\n' + str(round(info['time'])), 'HEA\n' + str(round(self.cumulative_health,2)),
-                        'REW\n' + str(round(self.cumulative_reward,3)), 'SCO\n' + str(round(self.cumulative_score,2)), 'MAP\n' + str(round(self.cumulative_map,2)),
+                        'REW\n' + str(round(self.cumulative_reward, 3)), 'SCO\n' + str(round(self.cumulative_score,2)), 'MAP\n' + str(round(self.cumulative_map,2)),
                         'DAM\n' + str(round(self.cumulative_damage,2))]
 
         self.drawlegends(self.screen, legend_texts)
@@ -495,6 +528,9 @@ class PygameRenderer:
         self.drawhistories(current_data)
         self.drawcontroller()
         self.drawloggertable()
+        self.display_policy(info)
+
+
         pygame.display.flip()
         
 

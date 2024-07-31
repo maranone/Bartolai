@@ -6,6 +6,7 @@ import random
 import os
 import json
 
+
 from custom.reward_manager import HierarchicalReward
 from custom.pygame_renderer import PygameRenderer
 from custom.load_config import config
@@ -83,7 +84,7 @@ class StochasticFrameSkip(gym.Wrapper):
         else:
             self.pygame_renderer = None
         self.reset_count = 0
-        self.max_steps_without_reward = 3000
+        self.max_steps_without_reward = 20000
         self.steps_for_log = 0
         self.previous_stats = None
         self.previous_stats_temp = None
@@ -136,7 +137,7 @@ class StochasticFrameSkip(gym.Wrapper):
 
 
         data = {
-            "cumulative_reward": round(self.cumulative_reward, 3),
+            "cumulative_reward": round(self.cumulative_reward),
             "cumulative_score": round(self.cumulative_score, 3),
             "cumulative_map": round(self.cumulative_map, 3),
             "cumulative_health": abs(round(self.cumulative_health, 3)),
@@ -151,14 +152,48 @@ class StochasticFrameSkip(gym.Wrapper):
         self.steps_for_log += 1
         terminated = False
         truncated = False
+        playing_mode = config.get('train_render') == True and self.env_id == 0
+        playing_mode = False
         for i in range(self.n):
-            if self.curac is None:
-                self.curac = ac
-            elif i == 0:
-                if self.rng.rand() > self.stickprob:
+            if playing_mode:
+                epsilon = 0.005  # Keep the epsilon for random exploration
+                if np.random.random() < epsilon:
+                    self.curac = self.env.action_space.sample()
+                else:
+                    if isinstance(ac, np.ndarray):
+                        # Replace NaN values with 0
+                        ac = np.nan_to_num(ac, nan=0.0)
+                        # Check if all values are zero
+                        if np.all(ac == 0):
+                            # Use uniform distribution if all values are zero
+                            best_action = np.random.choice(len(ac))
+                        else:
+                            # Choose the action with the highest probability
+                            best_action = np.argmax(ac)
+                        # Set a high probability for the best action (e.g., 0.9)
+                        best_action_prob = 0.5
+                        # Distribute the remaining probability among other actions
+                        other_probs = (1 - best_action_prob) / (len(ac) - 1)
+                        ac_probs = np.full(len(ac), other_probs)
+                        ac_probs[best_action] = best_action_prob
+                        # Sample from the modified action distribution
+                        self.curac = np.random.choice(len(ac_probs), p=ac_probs)
+                        # Convert to one-hot encoding
+                        one_hot = np.zeros_like(ac)
+                        one_hot[self.curac] = 1
+                        self.curac = one_hot
+                    else:
+                        self.curac = ac
+            else:
+                # Original training logic
+                if self.curac is None:
                     self.curac = ac
-            elif i == 1:
-                self.curac = ac
+                elif i == 0:
+                    if self.rng.rand() > self.stickprob:
+                        self.curac = ac
+                elif i == 1:
+                    self.curac = ac
+            
             if self.supports_want_render and i < self.n - 1:
                 ob, rew, terminated, truncated, info = self.env.step(
                     self.curac,
@@ -166,6 +201,7 @@ class StochasticFrameSkip(gym.Wrapper):
                 )
             else:
                 ob, rew, terminated, truncated, info = self.env.step(self.curac)
+
             rew = self.reward_system.calculate_reward(info, ac)
             self.reward_system.update_common_rewards(info)
             self.cumulative_reward = self.reward_system.get_cumulative_reward()
@@ -173,21 +209,17 @@ class StochasticFrameSkip(gym.Wrapper):
             self.cumulative_map = self.reward_system.get_cumulative_map()
             self.cumulative_damage = self.reward_system.get_cumulative_damage()
             self.cumulative_score = self.reward_system.get_cumulative_score()
+            self.steps_without_reward = self.reward_system.get_steps_without_reward()
 
 
-
-            if rew <= 0:
-                self.steps_without_reward += 1
-            else:
-                self.steps_without_reward = 0
             if self.steps_without_reward >= self.max_steps_without_reward:
-                self.steps_without_reward = 0
                 terminated = True
                 truncated = True 
             if terminated or truncated:
                 break
         #print(rew)
-        if self.env_id == 0 and config.get('train_render') == True:
+        playing_mode = config.get('train_render') == True and self.env_id == 0
+        if playing_mode:
             update_max_values(self)
             render_data = self.send_data(info)
             self.pygame_renderer.render(render_data)

@@ -3,7 +3,11 @@ import json
 
 import retro
 
-from stable_baselines3 import PPO
+import numpy as np
+
+import gymnasium as gym
+
+from stable_baselines3 import PPO, A2C
 from stable_baselines3.common.atari_wrappers import ClipRewardEnv, WarpFrame
 from stable_baselines3.common.vec_env import (
     SubprocVecEnv,
@@ -14,10 +18,34 @@ from stable_baselines3.common.vec_env import (
 from custom.load_config import config
 from custom.statslogger import StatsLogger
 from custom.stochasticframeskip import StochasticFrameSkip
-from custom.policies import CustomCNNLSTMPolicy, CustomCNNGRUExtractor
+from custom.policies import CustomCNNLSTMPolicy
+
+'''def make_retro(*, game, state=None, max_episode_steps=None, record='./record', env_id=0, **kwargs):
+    env = retro.make(game, state, use_restricted_actions=retro.Actions.FILTERED, record=record, **kwargs)
+    #print(env.buttons)
+    env = StochasticFrameSkip(env, n=2, stickprob=0.15, env_id=env_id)
+    return env'''
+
+class Discretizer(gym.ActionWrapper):
+
+    def __init__(self, env):
+        super(Discretizer, self).__init__(env)
+        buttons = ["B", "A", "MODE", "START", "UP", "DOWN", "LEFT", "RIGHT", "C", "Y", "X", "Z"]
+        actions = [['LEFT'], ['RIGHT'], ['LEFT', 'UP'], ['LEFT', 'DOWN'], ['RIGHT', 'UP'],
+                   ['RIGHT', 'DOWN'], ['UP'], ['DOWN'], ['B'], ['C'], ['B', 'C'], ]
+        self._actions = []
+        for action in actions:
+            arr = np.array([False] * 12)
+            for button in action:
+                arr[buttons.index(button)] = True
+            self._actions.append(arr)
+        self.action_space = gym.spaces.Discrete(len(self._actions))
+
+    def action(self, a): # pylint: disable=W0221
+        return self._actions[a].copy()
 
 def make_retro(*, game, state=None, max_episode_steps=None, record='./record', env_id=0, **kwargs):
-    env = retro.make(game, state, use_restricted_actions=retro.Actions.FILTERED, record=record, **kwargs)
+    env = retro.make(game, state, use_restricted_actions=retro.Actions.FILTERED, **kwargs)
     #print(env.buttons)
     env = StochasticFrameSkip(env, n=2, stickprob=0.15, env_id=env_id)
     return env
@@ -26,11 +54,15 @@ def make_retro(*, game, state=None, max_episode_steps=None, record='./record', e
 def wrap_deepmind_retro(env):
     env = WarpFrame(env)
     env = ClipRewardEnv(env)
+    env = Discretizer(env)
     return env
 
 
 def make_env(env_id, game, state, scenario, record, render, max_episode_steps):
-    env = make_retro(game=game, state=state, scenario=scenario, record=record, env_id=env_id, max_episode_steps=max_episode_steps, render_mode="rgb_array")
+    if config.get('train_render') == True:
+        env = make_retro(game=game, state=state, scenario=scenario, record=record, env_id=env_id, max_episode_steps=max_episode_steps, render_mode="rgb_array")
+    else:
+        env = make_retro(game=game, state=state, scenario=scenario, record=record, env_id=env_id, max_episode_steps=max_episode_steps, render_mode=None)
     env = wrap_deepmind_retro(env)
     return env
 
@@ -39,7 +71,6 @@ def make_env(env_id, game, state, scenario, record, render, max_episode_steps):
 
 
 def main():
-    
     config.load(os.path.join('settings', 'config.yaml'))
     best_params_path = os.path.join(config.get('tune_path'), 'best_params.json')
     with open(best_params_path, 'r') as f:
@@ -57,6 +88,7 @@ def main():
     if os.path.exists(model_path):
         print(f"Loading model from {model_path}")
         model = PPO.load(model_path, env=venv, custom_objects={"policy_class": CustomCNNLSTMPolicy})
+        #model = PPO.load(model_path, env=venv)
     else:
         print("Creating a new model")
         model = PPO(
@@ -79,7 +111,8 @@ def main():
     os.makedirs('./logs/', exist_ok=True)
 
     # Set up logger
-    stats_logger = StatsLogger(csv_path=os.path.join('./logs/training_log.csv'))
+    if config.get('train_env_num') > 1:
+        stats_logger = StatsLogger(csv_path=os.path.join('./logs/training_log.csv'))
 
     for i in range(config.get('train_iterations')):
         print(f"Starting iteration {i + 1}/{config.get('train_iterations')}")
@@ -88,12 +121,13 @@ def main():
             log_interval=1,
             progress_bar=True,
             reset_num_timesteps=False,  # This ensures the timestep count continues across iterations
-            callback=[stats_logger]
+            callback=[stats_logger] if config.get('train_env_num') > 1 else None
         )
         if config.get('train_env_num') > 1:
             model.save(model_path)
         else:
             model = PPO.load(model_path, env=venv, custom_objects={"policy_class": CustomCNNLSTMPolicy})
+            #model = PPO.load(model_path, env=venv)
 
     # Save the final model
     if config.get('train_env_num') > 1:

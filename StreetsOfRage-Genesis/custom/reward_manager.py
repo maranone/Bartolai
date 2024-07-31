@@ -1,9 +1,14 @@
+
+
 class HierarchicalReward:
     def __init__(self):
         self.wei_hea = 1  # Adjust these weights as needed
         self.wei_sco = 1
-        self.wei_map = 1
+        self.wei_map = 0.5
         self.wei_dam = 1
+        self.wei_swr = 0.0000001
+        self.wei_swr_exp = 1.01
+        self.wei_enemies = 0.001
         
         self.health = 0
         self.time = 0
@@ -17,6 +22,7 @@ class HierarchicalReward:
         self.cumulative_map = 0
         self.cumulative_damage = 0
         self.cumulative_score = 0
+        self.steps_without_reward = 0
 
     def get_cumulative_reward(self):
         return self.cumulative_reward
@@ -32,6 +38,9 @@ class HierarchicalReward:
 
     def get_cumulative_score(self):
         return self.cumulative_score
+    
+    def get_steps_without_reward(self):
+        return self.steps_without_reward
 
     def calculate_reward(self, info, ac):
         state = self.process_state(info)
@@ -79,10 +88,17 @@ class HierarchicalReward:
             self.map = state["map"]
         
         # Time penalty
-        if round(state["time"]) < round(self.time):
+        '''if round(state["time"]) < round(self.time):
             rew -= self.wei_sco
             self.cumulative_reward -= self.wei_sco
-        self.time = round(state["time"])
+        self.time = round(state["time"])'''
+
+        if rew <= 0:
+            self.steps_without_reward +=1
+            rew -= self.wei_swr * self.steps_without_reward * self.wei_swr_exp
+            self.cumulative_reward -= self.wei_swr * self.steps_without_reward * self.wei_swr_exp
+        else:
+            self.steps_without_reward = 0
         
         return rew
 
@@ -106,8 +122,21 @@ class HierarchicalReward:
         self.damage = state["damage"]
         
         # Small penalty for enemies present
-        rew -= 0.0001
-        self.cumulative_reward -= 0.0001
+        rew -= self.wei_enemies
+        self.cumulative_reward -= self.wei_enemies
+
+        # MAP progress penalty
+        if self.map == 0:
+            self.map = state["map"]
+        if info['go'] == 0 and self.map > 2000:
+            self.map = 800
+        if 800 < state["map"] < 5000 and state["map"] > self.map:
+            rew -= self.wei_map
+            self.cumulative_reward -= self.wei_map
+            self.cumulative_map -= self.wei_map
+            self.map = state["map"]
+
+        
         
         return rew
 
@@ -117,9 +146,9 @@ class HierarchicalReward:
         
         # GO progress reward
         if state["go"] > self.go:
-            rew += self.wei_map * 100
-            self.cumulative_reward += self.wei_map * 100
-            self.cumulative_map += self.wei_map * 100
+            rew += self.wei_map
+            self.cumulative_reward += self.wei_map
+            self.cumulative_map += self.wei_map
             self.go = state["go"]
         
         # Score reward
@@ -142,6 +171,7 @@ class HierarchicalReward:
         self.cumulative_map = 0
         self.cumulative_damage = 0
         self.cumulative_score = 0
+        self.steps_without_reward = 0
 
 '''def calculate_reward(self, info, ac):
     rew = 0
