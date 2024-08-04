@@ -4,10 +4,10 @@ class HierarchicalReward:
     def __init__(self):
         self.wei_hea = 1  # Adjust these weights as needed
         self.wei_sco = 1
-        self.wei_map = 0.5
+        self.wei_map = 0.0005
         self.wei_dam = 1
-        self.wei_swr = 0.0000001
-        self.wei_swr_exp = 1.01
+        self.wei_swr = 0.000000001
+        self.wei_swr_exp = 700.00
         self.wei_enemies = 0.001
         
         self.health = 0
@@ -76,8 +76,22 @@ class HierarchicalReward:
         rew = 0
         state = self.process_state(info)
         
+        # Health loss penalty
+        health_diff = state["health"] - self.health
+        if health_diff < 0:
+            rew -= self.wei_hea
+            self.cumulative_reward -= self.wei_hea
+            self.cumulative_health -= self.wei_hea
+        if health_diff > 0:
+            rew += self.wei_hea
+            self.cumulative_reward += self.wei_hea
+            self.cumulative_health += self.wei_hea
+        self.health = state["health"]
+
+
+
         # MAP progress reward
-        if self.map == 0:
+        '''if self.map == 0:
             self.map = state["map"]
         if info['go'] == 0 and self.map > 2000:
             self.map = 800
@@ -85,7 +99,7 @@ class HierarchicalReward:
             rew += self.wei_map
             self.cumulative_reward += self.wei_map
             self.cumulative_map += self.wei_map
-            self.map = state["map"]
+            self.map = state["map"]'''
         
         # Time penalty
         '''if round(state["time"]) < round(self.time):
@@ -93,13 +107,18 @@ class HierarchicalReward:
             self.cumulative_reward -= self.wei_sco
         self.time = round(state["time"])'''
 
+        # Exponential penalty for not positive reward
+        enemy_count = (sum(1 for i in range(1, 8) if info[f'enemy{i}'] > 0)) + 0.5
         if rew <= 0:
             self.steps_without_reward +=1
-            rew -= self.wei_swr * self.steps_without_reward * self.wei_swr_exp
-            self.cumulative_reward -= self.wei_swr * self.steps_without_reward * self.wei_swr_exp
+            rew -= (self.wei_swr * self.steps_without_reward * self.wei_swr_exp) * enemy_count
+            self.cumulative_reward -= (self.wei_swr * self.steps_without_reward * self.wei_swr_exp) * enemy_count
         else:
             self.steps_without_reward = 0
-        
+
+        self.cumulative_map = info['map']
+        self.cumulative_score = info['score']
+
         return rew
 
     def combat_reward(self, info, ac):
@@ -112,6 +131,10 @@ class HierarchicalReward:
             rew -= self.wei_hea
             self.cumulative_reward -= self.wei_hea
             self.cumulative_health -= self.wei_hea
+        if health_diff > 0:
+            rew += self.wei_hea
+            self.cumulative_reward += self.wei_hea
+            self.cumulative_health += self.wei_hea
         self.health = state["health"]
         
         # Damage dealt reward
@@ -121,42 +144,54 @@ class HierarchicalReward:
             self.cumulative_damage += self.wei_dam
         self.damage = state["damage"]
         
-        # Small penalty for enemies present
-        rew -= self.wei_enemies
-        self.cumulative_reward -= self.wei_enemies
+        
 
-        # MAP progress penalty
+        '''# MAP progress reward
         if self.map == 0:
             self.map = state["map"]
         if info['go'] == 0 and self.map > 2000:
             self.map = 800
         if 800 < state["map"] < 5000 and state["map"] > self.map:
-            rew -= self.wei_map
-            self.cumulative_reward -= self.wei_map
-            self.cumulative_map -= self.wei_map
-            self.map = state["map"]
-
-        
-        
-        return rew
-
-    def update_common_rewards(self, info):
-        state = self.process_state(info)
-        rew = 0
-        
-        # GO progress reward
-        if state["go"] > self.go:
             rew += self.wei_map
             self.cumulative_reward += self.wei_map
             self.cumulative_map += self.wei_map
-            self.go = state["go"]
+            self.map = state["map"]'''
+
+
+
+        # Exponential penalty for not positive reward
+        enemy_count = (sum(1 for i in range(1, 8) if info[f'enemy{i}'] > 0)) + 0.5
+        if rew <= 0:
+            self.steps_without_reward +=1
+            rew -= (self.wei_swr * self.steps_without_reward * self.wei_swr_exp) * enemy_count
+            self.cumulative_reward -= (self.wei_swr * self.steps_without_reward * self.wei_swr_exp) * enemy_count
+        else:
+            self.steps_without_reward = 0
+
+        
+        self.cumulative_map = info['map']
+        self.cumulative_score = info['score']
+
+        return rew
+
+    def update_common_rewards(self, info):
+        rew = 0
+        state = self.process_state(info)
+        #rew += 0
+        
+        # GO progress reward
+        #if state["go"] > self.go:
+        #    rew += self.wei_map
+        #    self.cumulative_reward += self.wei_map
+        #    self.cumulative_map += self.wei_map
+        #    self.go = state["go"]
         
         # Score reward
-        if state["score"] > self.score_temp:
-            rew += self.wei_sco
-            self.cumulative_reward += self.wei_sco
-            self.cumulative_score += self.wei_sco
-            self.score_temp = state["score"]
+        #if state["score"] > self.score_temp:
+        #    rew += self.wei_sco
+        #    self.cumulative_reward += self.wei_sco
+        #    self.cumulative_score += self.wei_sco
+        #    self.score_temp = state["score"]
 
     def reset(self):
         self.health = 0

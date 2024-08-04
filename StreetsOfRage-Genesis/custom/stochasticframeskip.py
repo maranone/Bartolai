@@ -148,6 +148,7 @@ class StochasticFrameSkip(gym.Wrapper):
         self.reset_count += 1
         self.steps_without_reward = 0
         return self.env.reset(**kwargs)
+    
     def step(self, ac):
         self.steps_for_log += 1
         terminated = False
@@ -156,34 +157,15 @@ class StochasticFrameSkip(gym.Wrapper):
         playing_mode = False
         for i in range(self.n):
             if playing_mode:
-                epsilon = 0.005  # Keep the epsilon for random exploration
-                if np.random.random() < epsilon:
-                    self.curac = self.env.action_space.sample()
+                if isinstance(ac, (np.ndarray, list)) and len(ac) > 1:
+                    action_probs = np.array(ac)
+                if np.any(action_probs < 0) or np.any(action_probs > 1):
+                    action_probs = np.exp(action_probs) / np.sum(np.exp(action_probs))
+                    chosen_action = np.random.choice(len(action_probs), p=action_probs)
                 else:
-                    if isinstance(ac, np.ndarray):
-                        # Replace NaN values with 0
-                        ac = np.nan_to_num(ac, nan=0.0)
-                        # Check if all values are zero
-                        if np.all(ac == 0):
-                            # Use uniform distribution if all values are zero
-                            best_action = np.random.choice(len(ac))
-                        else:
-                            # Choose the action with the highest probability
-                            best_action = np.argmax(ac)
-                        # Set a high probability for the best action (e.g., 0.9)
-                        best_action_prob = 0.5
-                        # Distribute the remaining probability among other actions
-                        other_probs = (1 - best_action_prob) / (len(ac) - 1)
-                        ac_probs = np.full(len(ac), other_probs)
-                        ac_probs[best_action] = best_action_prob
-                        # Sample from the modified action distribution
-                        self.curac = np.random.choice(len(ac_probs), p=ac_probs)
-                        # Convert to one-hot encoding
-                        one_hot = np.zeros_like(ac)
-                        one_hot[self.curac] = 1
-                        self.curac = one_hot
-                    else:
-                        self.curac = ac
+                    chosen_action = ac
+                #print(f"Playing mode: chosen action {chosen_action}")  # Debug print
+                self.curac = chosen_action
             else:
                 # Original training logic
                 if self.curac is None:

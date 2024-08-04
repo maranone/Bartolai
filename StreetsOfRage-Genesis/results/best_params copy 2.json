@@ -1,0 +1,15 @@
+{
+    "learning_rate": 1e-05,
+    "n_steps": 4096,
+    "batch_size": 1024,
+    "n_epochs": 50,
+    "gamma": 0.99,
+    "gae_lambda": 0.95,
+    "clip_range": 0.2,
+    "ent_coef": 0.05,
+    "embed_dim": 512,
+    "num_heads": 8,
+    "num_layers_vit": 6,
+    "num_layers_temporal": 5,
+    "patch_size": 2
+}

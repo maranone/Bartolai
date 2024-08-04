@@ -508,7 +508,7 @@ class PygameRenderer:
 
         # Define your legend texts
         legend_texts = ['SWR\n' + str(round(self.steps_without_reward)), 'TIM\n' + str(round(info['time'])), 'HEA\n' + str(round(self.cumulative_health,2)),
-                        'REW\n' + str(round(self.cumulative_reward, 3)), 'SCO\n' + str(round(self.cumulative_score,2)), 'MAP\n' + str(round(self.cumulative_map,2)),
+                        'REW\n' + str(round(self.cumulative_reward, 3)), 'SCO\n' + str(round(info['score'],2)), 'MAP\n' + str(info['map']),
                         'DAM\n' + str(round(self.cumulative_damage,2))]
 
         self.drawlegends(self.screen, legend_texts)
