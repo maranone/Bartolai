@@ -1,0 +1,1 @@
+![BartolAI](./images/logo.jpg)

@@ -23,7 +23,7 @@ from torch import nn
 from custom.load_config import config
 from custom.statslogger import StatsLogger
 from custom.stochasticframeskip import StochasticFrameSkip
-from custom.policies import CustomCNNLSTMPolicy
+from custom.policies import CustomCNNLSTMPolicy, EnhancedCNNLSTMPolicy
 from custom.game_states import game_states
 
 '''def make_retro(*, game, state=None, max_episode_steps=None, record='./record', env_id=0, **kwargs):
@@ -37,7 +37,8 @@ class Discretizer(gym.ActionWrapper):
     def __init__(self, env):
         super(Discretizer, self).__init__(env)
         buttons = ["B", "A", "MODE", "START", "UP", "DOWN", "LEFT", "RIGHT", "C", "Y", "X", "Z"]
-        actions = [['LEFT'], ['RIGHT'], ['UP'], ['DOWN'], ['B'], ['C'], ['B', 'C'], ['RIGHT', 'B'], ['RIGHT', 'C'], ['LEFT', 'B'], ['LEFT', 'C']]
+        #actions = [['LEFT'], ['RIGHT'], ['UP'], ['DOWN'], ['B'], ['C'], ['B', 'C'], ['RIGHT', 'B'], ['RIGHT', 'C'], ['LEFT', 'B'], ['LEFT', 'C']]
+        actions = [['LEFT'], ['RIGHT'], ['UP'], ['DOWN'], ['B'], ['C']]
         self._actions = []
         for action in actions:
             arr = np.array([False] * 12)
@@ -54,14 +55,13 @@ def make_retro(*, game, state=None, max_episode_steps=None, record=None, env_id=
         record = os.path.join(config.get('train_record_path'))
     env = retro.make(game, state, record=record, use_restricted_actions=retro.Actions.FILTERED, **kwargs)
     #print(env.buttons)
-    env = StochasticFrameSkip(env, n=2, stickprob=0.15, env_id=env_id)
     return env
 
 
 def wrap_deepmind_retro(env):
+    env = Discretizer(env)
     env = WarpFrame(env)
     env = ClipRewardEnv(env)
-    env = Discretizer(env)
     return env
 
 
@@ -70,8 +70,13 @@ def make_env(env_id, game, state, scenario, record, render, max_episode_steps):
         record = os.path.join(config.get('train_record_path'))
         env = make_retro(game=game, state=state, scenario=scenario, record=record, env_id=env_id, max_episode_steps=max_episode_steps, render_mode="rgb_array")
     else:
+        record = os.path.join(config.get('train_record_path'))
         env = make_retro(game=game, state=state, scenario=scenario, record=record, env_id=env_id, max_episode_steps=max_episode_steps, render_mode=None)
-    env = wrap_deepmind_retro(env)
+    if config.get('train_env_num') > 1:
+        env = wrap_deepmind_retro(env)
+    env = StochasticFrameSkip(env, n=2, stickprob=0.15, env_id=env_id)
+    if config.get('train_env_num') == 1:
+        env = wrap_deepmind_retro(env)
     return env
 
 
@@ -101,7 +106,7 @@ def main():
 
     if os.path.exists(model_path):
         print(f"Loading model from {model_path}")
-        model = PPO.load(model_path, env=venv, custom_objects={"policy_class": CustomCNNLSTMPolicy})
+        model = PPO.load(model_path, env=venv, custom_objects={"policy_class": EnhancedCNNLSTMPolicy})
         #model = PPO.load(model_path, env=venv)
     else:
         print("Creating a new model")
@@ -119,7 +124,7 @@ def main():
             verbose=1,
         )'''
         model = PPO(
-            policy=CustomCNNLSTMPolicy,
+            policy=EnhancedCNNLSTMPolicy,
             env=venv,
             learning_rate=best_params['learning_rate'],
             n_steps=best_params['n_steps'],
@@ -147,7 +152,7 @@ def main():
             model_path2 = os.path.join(config.get('train_path'), config.get('train_model_name') + ' - ' + str(i) + '.zip')
             model.save(model_path2)
         else:
-            model = PPO.load(model_path, env=venv, custom_objects={"policy_class": CustomCNNLSTMPolicy})
+            model = PPO.load(model_path, env=venv, custom_objects={"policy_class": EnhancedCNNLSTMPolicy})
             #model = PPO.load(model_path, env=venv)
 
     # Save the final model

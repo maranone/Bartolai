@@ -57,8 +57,8 @@ class PygameRenderer:
             "down": 0, "left": 0, "right": 0
         }
         self.button_press_history = deque(maxlen=10)
-        self.history_length = 100
-        self.histories = [collections.deque(maxlen=self.history_length) for _ in range(7)]
+        self.history_length = 2000
+        self.histories = [collections.deque(maxlen=self.history_length) for _ in range(2)]
 
 
     def calculate_statistics(self, data):
@@ -83,18 +83,21 @@ class PygameRenderer:
             }
         return stats
 
+
     def drawhistories(self, current_data):
         # Update histories
         for i, value in enumerate(current_data):
             self.histories[i].append(value)
 
-        chart_height = (((self.height // 4) * 1) - 45) // 7  # 10 pixels margin top and bottom
+        #chart_height = (((self.height // 4) * 1) - 45) // 7  # 10 pixels margin top and bottom
+        chart_height = (((self.height // 4) * 1) - 45)  # 10 pixels margin top and bottom
         #chart_width = (width - genesis_width) - 10  # 10 pixels margin left and right
         chart_width = (self.width - self.genesis_width) // 2 - 10  # 10 pixels margin left and right
 
         for i, history in enumerate(self.histories):
             # Calculate y position for this chart
-            chart_y = (self.height // 4 * 3) + 10 + i * (chart_height + 5)
+            #chart_y = (self.height // 4 * 3) + 10 + i * (chart_height + 5)
+            chart_y = (self.height // 4 * 3) + 10 + 0 * (chart_height + 5)
 
             # Normalize the data
             if history:
@@ -508,7 +511,7 @@ class PygameRenderer:
 
         # Define your legend texts
         legend_texts = ['SWR\n' + str(round(self.steps_without_reward)), 'TIM\n' + str(round(info['time'])), 'HEA\n' + str(round(self.cumulative_health,2)),
-                        'REW\n' + str(round(self.cumulative_reward, 3)), 'SCO\n' + str(round(info['score'],2)), 'MAP\n' + str(info['map']),
+                        'REW\n' + str(round(self.cumulative_reward, 3)), 'SCO\n' + str(round(info['score'],2)), 'MAP\n' + str(round(self.cumulative_map,2)),
                         'DAM\n' + str(round(self.cumulative_damage,2))]
 
         self.drawlegends(self.screen, legend_texts)
@@ -516,13 +519,13 @@ class PygameRenderer:
         self.drawresetcount()
 
         current_data = [
-            self.max_steps_without_reward - self.steps_without_reward,
-            info['time'],
-            abs(self.max_hea) - abs(self.cumulative_health),
+            #self.max_steps_without_reward - self.steps_without_reward,
+            #info['time'],
+            #abs(self.max_hea) - abs(self.cumulative_health),
             self.cumulative_reward,
             self.cumulative_score,
-            self.cumulative_map,
-            self.cumulative_damage
+            #self.cumulative_map,
+            #self.cumulative_damage
         ]
 
         self.drawhistories(current_data)

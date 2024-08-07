@@ -1,5 +1,3 @@
 StreetsOfRage-Genesis/env_log/*
-!StreetsOfRage-Genesis/env_log/*
 StreetsOfRage-Genesis/record/*
-!StreetsOfRage-Genesis/record/*
 StreetsOfRage-Genesis/ppo17.py

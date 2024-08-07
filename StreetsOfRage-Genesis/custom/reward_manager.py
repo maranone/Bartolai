@@ -4,7 +4,7 @@ class HierarchicalReward:
     def __init__(self):
         self.wei_hea = 1  # Adjust these weights as needed
         self.wei_sco = 1
-        self.wei_map = 0.0005
+        self.wei_map = 0.00001
         self.wei_dam = 1
         self.wei_swr = 0.000000001
         self.wei_swr_exp = 700.00
@@ -23,6 +23,26 @@ class HierarchicalReward:
         self.cumulative_damage = 0
         self.cumulative_score = 0
         self.steps_without_reward = 0
+
+    def rewardwithinrange(self, var):
+        if 130 <= var <= 150:
+            # Interpolation for range [130, 150]
+            return 0.1 + (var - 130) * 0.9 / 20
+        elif 150 < var <= 170:
+            # Interpolation for range [150, 170]
+            return 1 - (var - 150) * 0.9 / 20
+        else:
+            raise ValueError("Input value out of range")
+    
+    def reverse_rewardwithinrange(self, x):
+        if 0 <= x <= 130:
+            # Interpolation for range [0, 130]
+            return 1 - (x / 130) * 0.9
+        elif 170 <= x <= 220:
+            # Interpolation for range [170, 210]
+            return 0.1 + ((x - 170) / 40) * 0.9
+        else:
+            raise ValueError("Input value out of range")
 
     def get_cumulative_reward(self):
         return self.cumulative_reward
@@ -88,19 +108,29 @@ class HierarchicalReward:
             self.cumulative_health += self.wei_hea
         self.health = state["health"]
 
+        if info['screenposx'] > 130 and info['screenposx'] < 170:
+            rew += self.rewardwithinrange(info['screenposx']) / 100
+            self.cumulative_reward += self.rewardwithinrange(info['screenposx']) / 100
+            self.cumulative_map += self.rewardwithinrange(info['screenposx']) / 100
+
+        if info['screenposx'] < 130 or info['screenposx'] > 170:
+            rew -= self.reverse_rewardwithinrange(info['screenposx']) / 1000
+            self.cumulative_reward -= self.reverse_rewardwithinrange(info['screenposx']) / 1000
+            self.cumulative_map -= self.reverse_rewardwithinrange(info['screenposx']) / 1000
 
 
-        # MAP progress reward
-        '''if self.map == 0:
+        '''# MAP progress reward
+        if self.map == 0:
             self.map = state["map"]
-        if info['go'] == 0 and self.map > 2000:
+        if info['go'] == 0 and self.map > 3000:
             self.map = 800
         if 800 < state["map"] < 5000 and state["map"] > self.map:
             rew += self.wei_map
             self.cumulative_reward += self.wei_map
             self.cumulative_map += self.wei_map
-            self.map = state["map"]'''
-        
+            self.map = state["map"]
+        '''
+
         # Time penalty
         '''if round(state["time"]) < round(self.time):
             rew -= self.wei_sco
@@ -108,16 +138,16 @@ class HierarchicalReward:
         self.time = round(state["time"])'''
 
         # Exponential penalty for not positive reward
-        enemy_count = (sum(1 for i in range(1, 8) if info[f'enemy{i}'] > 0)) + 0.5
+        #enemy_count = (sum(1 for i in range(1, 8) if info[f'enemy{i}'] > 0)) + 0.5
         if rew <= 0:
             self.steps_without_reward +=1
-            rew -= (self.wei_swr * self.steps_without_reward * self.wei_swr_exp) * enemy_count
-            self.cumulative_reward -= (self.wei_swr * self.steps_without_reward * self.wei_swr_exp) * enemy_count
+            #rew -= (self.wei_swr * self.steps_without_reward * self.wei_swr_exp) * enemy_count
+            #self.cumulative_reward -= (self.wei_swr * self.steps_without_reward * self.wei_swr_exp) * enemy_count
         else:
             self.steps_without_reward = 0
 
-        self.cumulative_map = info['map']
-        self.cumulative_score = info['score']
+        #self.cumulative_map = info['map']
+        #self.cumulative_score = info['score']
 
         return rew
 
@@ -125,6 +155,8 @@ class HierarchicalReward:
         rew = 0
         state = self.process_state(info)
         
+
+
         # Health loss penalty
         health_diff = state["health"] - self.health
         if health_diff < 0:
@@ -144,7 +176,16 @@ class HierarchicalReward:
             self.cumulative_damage += self.wei_dam
         self.damage = state["damage"]
         
-        
+        if info['screenposx'] > 130 and info['screenposx'] < 170:
+            rew += self.rewardwithinrange(info['screenposx']) / 100
+            self.cumulative_reward += self.rewardwithinrange(info['screenposx']) / 100
+            self.cumulative_map += self.rewardwithinrange(info['screenposx']) / 100
+
+        if info['screenposx'] < 130 or info['screenposx'] > 170:
+            rew -= self.reverse_rewardwithinrange(info['screenposx']) / 1000
+            self.cumulative_reward -= self.reverse_rewardwithinrange(info['screenposx']) / 1000
+            self.cumulative_map -= self.reverse_rewardwithinrange(info['screenposx']) / 1000
+
 
         '''# MAP progress reward
         if self.map == 0:
@@ -160,17 +201,17 @@ class HierarchicalReward:
 
 
         # Exponential penalty for not positive reward
-        enemy_count = (sum(1 for i in range(1, 8) if info[f'enemy{i}'] > 0)) + 0.5
+        #enemy_count = (sum(1 for i in range(1, 8) if info[f'enemy{i}'] > 0)) + 0.5
         if rew <= 0:
             self.steps_without_reward +=1
-            rew -= (self.wei_swr * self.steps_without_reward * self.wei_swr_exp) * enemy_count
-            self.cumulative_reward -= (self.wei_swr * self.steps_without_reward * self.wei_swr_exp) * enemy_count
+            #rew -= (self.wei_swr * self.steps_without_reward * self.wei_swr_exp) * (enemy_count * 5)
+            #self.cumulative_reward -= (self.wei_swr * self.steps_without_reward * self.wei_swr_exp) * (enemy_count * 5)
         else:
             self.steps_without_reward = 0
 
         
-        self.cumulative_map = info['map']
-        self.cumulative_score = info['score']
+        #self.cumulative_map = info['map']
+        #self.cumulative_score = info['score']'''
 
         return rew
 
@@ -187,10 +228,10 @@ class HierarchicalReward:
         #    self.go = state["go"]
         
         # Score reward
-        #if state["score"] > self.score_temp:
+        if state["score"] > self.score_temp:
         #    rew += self.wei_sco
         #    self.cumulative_reward += self.wei_sco
-        #    self.cumulative_score += self.wei_sco
+            self.cumulative_score = state["score"]
         #    self.score_temp = state["score"]
 
     def reset(self):

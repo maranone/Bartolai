@@ -47,7 +47,7 @@ class StochasticFrameSkip(gym.Wrapper):
         self.env_id = env_id
         self.curac = None
         self.rng = np.random.RandomState()
-        self.supports_want_render = hasattr(env, "supports_want_render")
+        #self.supports_want_render = hasattr(env, "supports_want_render")
 
 
         self.reward_system = HierarchicalReward()
@@ -176,15 +176,19 @@ class StochasticFrameSkip(gym.Wrapper):
                 elif i == 1:
                     self.curac = ac
             
-            if self.supports_want_render and i < self.n - 1:
+            '''if self.supports_want_render and i < self.n - 1:
                 ob, rew, terminated, truncated, info = self.env.step(
                     self.curac,
                     want_render=False,
                 )
             else:
                 ob, rew, terminated, truncated, info = self.env.step(self.curac)
+            '''
 
-            rew = self.reward_system.calculate_reward(info, ac)
+            ob, rew, terminated, truncated, info = self.env.step(self.curac)
+
+            #rew = self.reward_system.calculate_reward(info, ac)
+            rew2 = self.reward_system.calculate_reward(info, ac)
             self.reward_system.update_common_rewards(info)
             self.cumulative_reward = self.reward_system.get_cumulative_reward()
             self.cumulative_health = self.reward_system.get_cumulative_health()
@@ -193,6 +197,11 @@ class StochasticFrameSkip(gym.Wrapper):
             self.cumulative_score = self.reward_system.get_cumulative_score()
             self.steps_without_reward = self.reward_system.get_steps_without_reward()
 
+            '''print("Observation shape:", ob.shape)
+            print("Observation type:", type(ob))
+            print("Info keys:", info.keys())
+            print("Map value:", info.get('map'))
+        '''
 
             if self.steps_without_reward >= self.max_steps_without_reward:
                 terminated = True
