@@ -10,6 +10,7 @@ class HierarchicalReward:
         self.wei_swr_exp = 700.00
         self.wei_enemies = 0.001
         
+
         self.health = 0
         self.time = 0
         self.map = 0
@@ -39,10 +40,12 @@ class HierarchicalReward:
             # Interpolation for range [0, 130]
             return 1 - (x / 130) * 0.9
         elif 170 <= x <= 220:
-            # Interpolation for range [170, 210]
-            return 0.1 + ((x - 170) / 40) * 0.9
+            # Interpolation for range [170, 220]
+            return 0.1 + ((x - 170) / 50) * 0.9
         else:
-            raise ValueError("Input value out of range")
+            # Return 0 for values outside the specified ranges
+            return 0
+
 
     def get_cumulative_reward(self):
         return self.cumulative_reward
@@ -108,11 +111,6 @@ class HierarchicalReward:
             self.cumulative_health += self.wei_hea
         self.health = state["health"]
 
-        if info['screenposx'] > 130 and info['screenposx'] < 170:
-            rew += self.rewardwithinrange(info['screenposx']) / 100
-            self.cumulative_reward += self.rewardwithinrange(info['screenposx']) / 100
-            self.cumulative_map += self.rewardwithinrange(info['screenposx']) / 100
-
         if info['screenposx'] < 130 or info['screenposx'] > 170:
             rew -= self.reverse_rewardwithinrange(info['screenposx']) / 1000
             self.cumulative_reward -= self.reverse_rewardwithinrange(info['screenposx']) / 1000
@@ -149,6 +147,7 @@ class HierarchicalReward:
         #self.cumulative_map = info['map']
         #self.cumulative_score = info['score']
 
+
         return rew
 
     def combat_reward(self, info, ac):
@@ -176,11 +175,6 @@ class HierarchicalReward:
             self.cumulative_damage += self.wei_dam
         self.damage = state["damage"]
         
-        if info['screenposx'] > 130 and info['screenposx'] < 170:
-            rew += self.rewardwithinrange(info['screenposx']) / 100
-            self.cumulative_reward += self.rewardwithinrange(info['screenposx']) / 100
-            self.cumulative_map += self.rewardwithinrange(info['screenposx']) / 100
-
         if info['screenposx'] < 130 or info['screenposx'] > 170:
             rew -= self.reverse_rewardwithinrange(info['screenposx']) / 1000
             self.cumulative_reward -= self.reverse_rewardwithinrange(info['screenposx']) / 1000

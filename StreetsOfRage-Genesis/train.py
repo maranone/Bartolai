@@ -69,14 +69,13 @@ def make_env(env_id, game, state, scenario, record, render, max_episode_steps):
     if config.get('train_render') == True:
         record = os.path.join(config.get('train_record_path'))
         env = make_retro(game=game, state=state, scenario=scenario, record=record, env_id=env_id, max_episode_steps=max_episode_steps, render_mode="rgb_array")
+        env = StochasticFrameSkip(env, n=config.get('train_n_stack'), stickprob=0.30, env_id=env_id)
+        env = wrap_deepmind_retro(env)
     else:
         record = os.path.join(config.get('train_record_path'))
         env = make_retro(game=game, state=state, scenario=scenario, record=record, env_id=env_id, max_episode_steps=max_episode_steps, render_mode=None)
-    if config.get('train_env_num') > 1:
         env = wrap_deepmind_retro(env)
-    env = StochasticFrameSkip(env, n=2, stickprob=0.15, env_id=env_id)
-    if config.get('train_env_num') == 1:
-        env = wrap_deepmind_retro(env)
+        env = StochasticFrameSkip(env, n=config.get('train_n_stack'), stickprob=0.30, env_id=env_id)
     return env
 
 

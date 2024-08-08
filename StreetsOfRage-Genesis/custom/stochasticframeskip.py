@@ -47,7 +47,7 @@ class StochasticFrameSkip(gym.Wrapper):
         self.env_id = env_id
         self.curac = None
         self.rng = np.random.RandomState()
-        #self.supports_want_render = hasattr(env, "supports_want_render")
+        self.supports_want_render = hasattr(env, "supports_want_render")
 
 
         self.reward_system = HierarchicalReward()
@@ -116,6 +116,9 @@ class StochasticFrameSkip(gym.Wrapper):
 
 
     def reset(self, **kwargs):
+
+
+
         update_max_values(self)
 
         self.reward_system.reset()
@@ -149,66 +152,45 @@ class StochasticFrameSkip(gym.Wrapper):
         self.steps_without_reward = 0
         return self.env.reset(**kwargs)
     
+    def _info_to_array(self, info):
+        # Convert info dictionary to a flat array or other suitable format
+        return np.array([info.get(key, 0) for key in self.info_keys])
+    
     def step(self, ac):
         self.steps_for_log += 1
         terminated = False
         truncated = False
-        playing_mode = config.get('train_render') == True and self.env_id == 0
-        playing_mode = False
         for i in range(self.n):
-            if playing_mode:
-                if isinstance(ac, (np.ndarray, list)) and len(ac) > 1:
-                    action_probs = np.array(ac)
-                if np.any(action_probs < 0) or np.any(action_probs > 1):
-                    action_probs = np.exp(action_probs) / np.sum(np.exp(action_probs))
-                    chosen_action = np.random.choice(len(action_probs), p=action_probs)
-                else:
-                    chosen_action = ac
-                #print(f"Playing mode: chosen action {chosen_action}")  # Debug print
-                self.curac = chosen_action
-            else:
-                # Original training logic
-                if self.curac is None:
-                    self.curac = ac
-                elif i == 0:
-                    if self.rng.rand() > self.stickprob:
-                        self.curac = ac
-                elif i == 1:
-                    self.curac = ac
-            
-            '''if self.supports_want_render and i < self.n - 1:
+            self.curac = ac
+            if self.supports_want_render and i < self.n - 1:
                 ob, rew, terminated, truncated, info = self.env.step(
                     self.curac,
                     want_render=False,
                 )
             else:
                 ob, rew, terminated, truncated, info = self.env.step(self.curac)
-            '''
+            rew = (self.reward_system.calculate_reward(info, ac)) / self.n
+            rew = max(-1, min(rew, 1))
 
-            ob, rew, terminated, truncated, info = self.env.step(self.curac)
+        self.reward_system.update_common_rewards(info)
+        self.cumulative_reward = self.reward_system.get_cumulative_reward()
+        self.cumulative_health = self.reward_system.get_cumulative_health()
+        self.cumulative_map = self.reward_system.get_cumulative_map()
+        self.cumulative_damage = self.reward_system.get_cumulative_damage()
+        self.cumulative_score = self.reward_system.get_cumulative_score()
+        self.steps_without_reward = self.reward_system.get_steps_without_reward()
 
-            #rew = self.reward_system.calculate_reward(info, ac)
-            rew2 = self.reward_system.calculate_reward(info, ac)
-            self.reward_system.update_common_rewards(info)
-            self.cumulative_reward = self.reward_system.get_cumulative_reward()
-            self.cumulative_health = self.reward_system.get_cumulative_health()
-            self.cumulative_map = self.reward_system.get_cumulative_map()
-            self.cumulative_damage = self.reward_system.get_cumulative_damage()
-            self.cumulative_score = self.reward_system.get_cumulative_score()
-            self.steps_without_reward = self.reward_system.get_steps_without_reward()
-
-            '''print("Observation shape:", ob.shape)
-            print("Observation type:", type(ob))
-            print("Info keys:", info.keys())
-            print("Map value:", info.get('map'))
-        '''
-
-            if self.steps_without_reward >= self.max_steps_without_reward:
-                terminated = True
-                truncated = True 
-            if terminated or truncated:
-                break
+        '''print("Observation shape:", ob.shape)
+        print("Observation type:", type(ob))
+        print("Info keys:", info.keys())
+        print("Map value:", info.get('map'))
+    '''
+        #additional_features = th.tensor(info['screenposx']).float()
+        if self.steps_without_reward >= self.max_steps_without_reward:
+            terminated = True
+            truncated = True 
         #print(rew)
+
         playing_mode = config.get('train_render') == True and self.env_id == 0
         if playing_mode:
             update_max_values(self)

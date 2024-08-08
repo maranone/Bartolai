@@ -57,7 +57,7 @@ class PygameRenderer:
             "down": 0, "left": 0, "right": 0
         }
         self.button_press_history = deque(maxlen=10)
-        self.history_length = 2000
+        self.history_length = 200
         self.histories = [collections.deque(maxlen=self.history_length) for _ in range(2)]
 
 

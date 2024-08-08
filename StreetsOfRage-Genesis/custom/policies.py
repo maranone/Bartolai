@@ -118,7 +118,7 @@ class CustomCNNLSTMPolicy(ActorCriticPolicy):
 class EnhancedCNNLSTMExtractor(BaseFeaturesExtractor):
     def __init__(self, observation_space: gym.spaces.Box, features_dim: int = 512, sequence_length: int = 30,
                  embed_dim: int = 256, num_heads: int = 8, num_layers_vit: int = 6,
-                 num_layers_temporal: int = 3, patch_size: int = 8):
+                 num_layers_temporal: int = 2, patch_size: int = 8):
         super(EnhancedCNNLSTMExtractor, self).__init__(observation_space, features_dim)
         
         self.sequence_length = sequence_length
@@ -127,16 +127,17 @@ class EnhancedCNNLSTMExtractor(BaseFeaturesExtractor):
         self.num_layers_vit = num_layers_vit
         self.num_layers_temporal = num_layers_temporal
         self.patch_size = patch_size
+
+        self.info = info
+        
         
         n_input_channels = observation_space.shape[0]
         
         # Enhanced CNN
         self.cnn = nn.Sequential(
-            nn.Conv2d(n_input_channels, 32, kernel_size=8, stride=4, padding=0),
+            nn.Conv2d(n_input_channels, 32, kernel_size=5, stride=2, padding=2),
             nn.ReLU(),
-            nn.Conv2d(32, 64, kernel_size=4, stride=2, padding=0),
-            nn.ReLU(),
-            nn.Conv2d(64, 128, kernel_size=3, stride=1, padding=0),
+            nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1),
             nn.ReLU(),
             nn.AdaptiveAvgPool2d((4, 4)),
             nn.Flatten()
@@ -147,10 +148,10 @@ class EnhancedCNNLSTMExtractor(BaseFeaturesExtractor):
             n_flatten = self.cnn(th.as_tensor(observation_space.sample()[None]).float()).shape[1]
         
         # Define LSTM with parameters
-        self.lstm = nn.LSTM(n_flatten, self.embed_dim, num_layers=self.num_layers_temporal, batch_first=True)
-        
+        self.lstm = nn.LSTM(n_flatten, self.embed_dim, num_layers=self.num_layers_temporal, batch_first=True, dropout=0.3)
+
         # Add attention mechanism
-        self.attention = nn.MultiheadAttention(embed_dim=self.embed_dim, num_heads=self.num_heads)
+        self.attention = nn.MultiheadAttention(embed_dim=self.embed_dim, num_heads=self.num_heads, dropout=0.1)
         
         # Add layer normalization
         self.layer_norm = nn.LayerNorm(self.embed_dim)
@@ -160,6 +161,7 @@ class EnhancedCNNLSTMExtractor(BaseFeaturesExtractor):
         self.fc2 = nn.Linear(self.embed_dim // 2, features_dim)
         
     def forward(self, observations: th.Tensor) -> th.Tensor:
+        #print(f"Input tensor shape: {observations.shape}")
         if observations.dim() == 4:
             batch_size, C, H, W = observations.shape
             sequence_length = 1
@@ -180,9 +182,13 @@ class EnhancedCNNLSTMExtractor(BaseFeaturesExtractor):
         # Apply attention mechanism
         attn_output, _ = self.attention(lstm_out, lstm_out, lstm_out)
         
+        attn_output = self.layer_norm(attn_output)
+
         # Add residual connection and layer normalization
         output = self.layer_norm(lstm_out + attn_output)
+
         
+
         # Final fully connected layers with ReLU activation
         output = F.relu(self.fc1(output[:, -1, :]))
         output = self.fc2(output)
@@ -192,3 +198,6 @@ class EnhancedCNNLSTMExtractor(BaseFeaturesExtractor):
 class EnhancedCNNLSTMPolicy(ActorCriticPolicy):
     def __init__(self, *args, **kwargs):
         super(EnhancedCNNLSTMPolicy, self).__init__(*args, **kwargs, features_extractor_class=EnhancedCNNLSTMExtractor)
+
+
+        
